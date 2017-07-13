@@ -1,17 +1,19 @@
 #!/usr/bin/groovy
 
 
-def call(repo, credentialsId, branch, refspec) {
+def call(repo, credentialsId, branch, refspec, additionalExtensions = []) {
+  def defaultExtensions = [
+    [
+      $class      : 'BuildChooserSetting',
+      buildChooser: [$class: 'GerritTriggerBuildChooser']
+    ]
+  ]
+
   checkout([
     $class                           : 'GitSCM',
     branches                         : [[name: branch]],
     doGenerateSubmoduleConfigurations: false,
-    extensions                       : [
-      [
-        $class      : 'BuildChooserSetting',
-        buildChooser: [$class: 'GerritTriggerBuildChooser']
-      ]
-    ],
+    extensions                       : defaultExtensions + additionalExtensions,
     submoduleCfg                     : [],
     userRemoteConfigs                : [
       [

@@ -1,51 +1,28 @@
 #!/usr/bin/groovy
 
+
 import com.cloudbees.groovy.cps.NonCPS
-import groovy.json.JsonOutput
 
 def call(currentBuild, channel) {
   def pb = currentBuild.previousBuild
-  while (pb != null && pb.result == 'ABORTED') {
+  while(pb != null && pb.result == 'ABORTED') {
     pb = pb.previousBuild
   }
 
   def previousResult = (pb != null) ? pb.result : "SUCCESS"
-
   if (currentBuild.result == 'FAILURE' ||
-      currentBuild.result == 'UNSTABLE' ||
-      (currentBuild.result == 'SUCCESS' && previousResult != 'SUCCESS')) {
+     currentBuild.result == 'UNSTABLE' ||
+     (currentBuild.result == 'SUCCESS' && previousResult != 'SUCCESS')) {
 
-    sendSlackWebhook(
-      channel,
-      getBuildStatusMessage(currentBuild.result, previousResult),
-      getBuildColor(currentBuild.result)
-    )
+    // send build result
+    slackSend channel: channel,
+              color: getBuildColor(currentBuild.result),
+              message: getBuildStatusMessage(currentBuild.result, previousResult)
 
-    sendSlackWebhook(
-      channel,
-      getChanges(currentBuild),
-      getBuildColor(currentBuild.result)
-    )
-  }
-}
-
-def sendSlackWebhook(String channel, String message, String color) {
-  withCredentials([string(credentialsId: 'slack-webhook-url', variable: 'SLACK_WEBHOOK_URL')]) {
-    def payload = [
-      channel : channel,
-      username: "Jenkins",
-      attachments: [[
-        color: color,
-        text : message
-      ]]
-    ]
-
-    def jsonPayload = JsonOutput.toJson(payload)
-    def escapedPayload = jsonPayload.replace("'", "'\"'\"'")
-
-    sh """
-      curl -sS -X POST --data-urlencode 'payload=${escapedPayload}' "\$SLACK_WEBHOOK_URL"
-    """
+    // send build changes
+    slackSend channel: channel,
+              color: getBuildColor(currentBuild.result),
+              message: getChanges(currentBuild)
   }
 }
 
@@ -95,12 +72,12 @@ def getChanges(build) {
     return message.toString()
   }
 
-  message.append("Changes:\\n")
+  message.append("Changes:\n")
   for (int i = 0; i < changeLogSets.size(); i++) {
     def entries = changeLogSets[i].items
     for (int j = 0; j < entries.length; j++) {
       def entry = entries[j]
-      message.append("- ${entry.msg} [${entry.author}]\\n")
+      message.append("- ${entry.msg} [${entry.author}]\n")
     }
   }
 
